@@ -1,0 +1,28 @@
+title: Weiqi Zhou
+description: Personal site & blog
+url: "https://weiqizhou2002.github.io"
+baseurl: ""
+author: Weiqi Zhou
+
+markdown: kramdown
+highlighter: rouge
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-feed
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+  - scope:
+      path: ""
+    values:
+      layout: "default"
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md

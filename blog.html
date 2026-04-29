@@ -1,0 +1,22 @@
+---
+layout: default
+title: Blog
+---
+
+<h1 class="section-title">Blog</h1>
+
+<ul class="post-list">
+  {% for post in site.posts %}
+  <li>
+    <a href="{{ post.url | relative_url }}">
+      <h3>{{ post.title }}</h3>
+      <time>{{ post.date | date: "%B %-d, %Y" }}</time>
+      {% if post.excerpt %}
+      <div class="excerpt">{{ post.excerpt | strip_html | truncate: 120 }}</div>
+      {% endif %}
+    </a>
+  </li>
+  {% else %}
+  <li><p style="color: var(--muted);">No posts yet. Check back soon!</p></li>
+  {% endfor %}
+</ul>

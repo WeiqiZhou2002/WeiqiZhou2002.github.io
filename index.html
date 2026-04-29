@@ -1,0 +1,36 @@
+---
+layout: default
+title: Home
+---
+
+<div class="hero">
+  <h1>Hi, I'm Weiqi Zhou</h1>
+  <p class="subtitle">Developer &amp; lifelong learner</p>
+  <p class="bio">
+    I build things, solve problems, and explore what technology can do.
+    This is my little corner of the web — a place for my thoughts, projects, and experiences.
+  </p>
+  <div class="hero-links">
+    <a href="{{ '/resume' | relative_url }}">View Resume →</a>
+    <a href="{{ '/blog' | relative_url }}">Read Blog →</a>
+    <a href="https://github.com/WeiqiZhou2002" target="_blank">GitHub →</a>
+  </div>
+</div>
+
+<h2 class="section-title">Latest Posts</h2>
+
+<ul class="post-list">
+  {% for post in site.posts limit:5 %}
+  <li>
+    <a href="{{ post.url | relative_url }}">
+      <h3>{{ post.title }}</h3>
+      <time>{{ post.date | date: "%B %-d, %Y" }}</time>
+      {% if post.excerpt %}
+      <div class="excerpt">{{ post.excerpt | strip_html | truncate: 120 }}</div>
+      {% endif %}
+    </a>
+  </li>
+  {% else %}
+  <li><p style="color: var(--muted);">No posts yet. Stay tuned!</p></li>
+  {% endfor %}
+</ul>

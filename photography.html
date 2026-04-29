@@ -10,12 +10,26 @@ title: Photography
   I enjoy playing with light, composition, and perspective.
 </p>
 
-<div class="gallery">
+<div class="gallery" id="gallery">
   {% for photo in site.static_files %}
-    {% if photo.path contains 'assets/photos' and (photo.extname == '.JPG' or photo.extname == '.jpg' or photo.extname == '.heic' or photo.extname == '.HEIC') %}
+    {% if photo.path contains 'assets/photos' and (photo.extname == '.JPG' or photo.extname == '.jpg') %}
     <div class="gallery-item">
       <img src="{{ photo.path | relative_url }}" alt="{{ photo.basename }}" loading="lazy">
     </div>
     {% endif %}
   {% endfor %}
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var gallery = document.getElementById('gallery');
+    if (gallery && window.Masonry) {
+      new Masonry(gallery, {
+        itemSelector: '.gallery-item',
+        columnWidth: '.gallery-item',
+        percentPosition: true,
+        gutter: 16
+      });
+    }
+  });
+</script>

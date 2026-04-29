@@ -83,6 +83,14 @@ nav a:hover { color: var(--accent); }
 /* ─── Footer ─── */
 .site-footer { text-align: center; padding: 32px 0; margin-top: 64px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
 
+/* ─── Gallery ─── */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
+.gallery-item { border-radius: var(--radius); overflow: hidden; background: var(--card); aspect-ratio: 4/3; }
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+.gallery-item:hover img { transform: scale(1.03); }
+.gallery-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: var(--border); color: var(--muted); }
+.gallery-item .caption { padding: 8px 12px; font-size: 0.85rem; color: var(--muted); background: var(--card); }
+
 /* ─── Responsive ─── */
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.8rem; }

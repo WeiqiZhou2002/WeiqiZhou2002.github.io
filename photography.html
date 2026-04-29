@@ -1,0 +1,21 @@
+---
+layout: default
+title: Photography
+---
+
+<h1 class="section-title">Photography</h1>
+
+<p style="color: var(--muted); margin-bottom: 32px;">
+  Some moments I've captured. Photography is one of my creative outlets — 
+  I enjoy playing with light, composition, and perspective.
+</p>
+
+<div class="gallery">
+  {% for i in (1..12) %}
+  <div class="gallery-item">
+    <div class="gallery-placeholder">
+      <span>📷</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>

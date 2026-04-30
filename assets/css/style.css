@@ -92,6 +92,11 @@ nav a:hover { color: var(--accent); }
 .gallery-item:hover img { transform: scale(1.03); }
 .gallery-item .caption { padding: 8px 12px; font-size: 0.85rem; color: var(--muted); background: var(--card); }
 
+.page-photography .container, .page-photography main { max-width: 100%; padding: 0 24px; }
+.page-photography .gallery { margin: 24px auto; }
+.page-photography .gallery-item { width: calc(50% - 8px); }
+@media (max-width: 480px) { .page-photography .gallery-item { width: 100%; } }
+
 /* ─── Responsive ─── */
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.8rem; }

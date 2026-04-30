@@ -11,7 +11,7 @@
   {% feed_meta %}
   {% seo %}
 </head>
-<body>
+<body class="page-{{ page.body_class | default: 'default' }}">
   <div class="container">
     <header class="site-header">
       <div class="header-inner">

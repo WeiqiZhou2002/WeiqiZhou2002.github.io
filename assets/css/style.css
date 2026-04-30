@@ -85,17 +85,11 @@ nav a:hover { color: var(--accent); }
 
 /* ─── Gallery ─── */
 .gallery { margin: 24px auto; max-width: 100%; }
-.gallery-item { width: calc(33.333% - 11px); margin-bottom: 16px; border-radius: var(--radius); overflow: hidden; background: var(--card); }
-@media (max-width: 768px) { .gallery-item { width: calc(50% - 8px); } }
+.gallery-item { width: calc(50% - 8px); margin-bottom: 16px; border-radius: var(--radius); overflow: hidden; background: var(--card); }
 @media (max-width: 480px) { .gallery-item { width: 100%; } }
 .gallery-item img { width: 100%; height: auto; display: block; transition: transform 0.3s ease; }
 .gallery-item:hover img { transform: scale(1.03); }
 .gallery-item .caption { padding: 8px 12px; font-size: 0.85rem; color: var(--muted); background: var(--card); }
-
-.page-photography .container, .page-photography main { max-width: 100%; padding: 0 24px; }
-.page-photography .gallery { margin: 24px auto; }
-.page-photography .gallery-item { width: calc(50% - 8px); }
-@media (max-width: 480px) { .page-photography .gallery-item { width: 100%; } }
 
 /* ─── Responsive ─── */
 @media (max-width: 480px) {

@@ -23,12 +23,14 @@ title: Photography
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var gallery = document.getElementById('gallery');
-    if (gallery && window.Masonry) {
-      new Masonry(gallery, {
-        itemSelector: '.gallery-item',
-        columnWidth: '.gallery-item',
-        percentPosition: true,
-        gutter: 16
+    if (gallery && window.Masonry && window.imagesLoaded) {
+      imagesLoaded(gallery, function() {
+        new Masonry(gallery, {
+          itemSelector: '.gallery-item',
+          columnWidth: '.gallery-item',
+          percentPosition: true,
+          gutter: 16
+        });
       });
     }
   });

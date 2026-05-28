@@ -5,8 +5,8 @@ baseurl: ""
 author: Weiqi Zhou
 
 markdown: kramdown
-highlighter: rouge
 future: true
+highlighter: rouge
 
 plugins:
   - jekyll-seo-tag

@@ -105,7 +105,7 @@ function PhotoMap({ photos, selected, onSelect }) {
   );
 
   React.useEffect(() => {
-    if (!mapNodeRef.current || mapRef.current) return undefined;
+    if (!photosWithCoordinates.length || !mapNodeRef.current || mapRef.current) return undefined;
 
     const map = L.map(mapNodeRef.current, {
       scrollWheelZoom: false,
@@ -118,13 +118,15 @@ function PhotoMap({ photos, selected, onSelect }) {
 
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
+    requestAnimationFrame(() => map.invalidateSize());
+    window.setTimeout(() => map.invalidateSize(), 250);
 
     return () => {
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
     };
-  }, []);
+  }, [photosWithCoordinates.length]);
 
   React.useEffect(() => {
     const map = mapRef.current;
@@ -157,6 +159,7 @@ function PhotoMap({ photos, selected, onSelect }) {
     } else {
       map.fitBounds(bounds, { padding: [36, 36], maxZoom: 7 });
     }
+    requestAnimationFrame(() => map.invalidateSize());
   }, [photosWithCoordinates, selected?.id, onSelect]);
 
   React.useEffect(() => {

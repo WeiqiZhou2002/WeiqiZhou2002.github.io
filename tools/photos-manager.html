@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f0f2f5;color:#1a1a1a;padding:20px;max-width:1200px;margin:0 auto}
+h1{margin-bottom:8px}
+.sub{color:#6b7280;font-size:.9rem;margin-bottom:20px}
+.toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.btn{padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:.9rem;transition:.2s}
+.btn:hover{opacity:.85}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.btn-danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb}
+.card .img-wrap{width:100%;height:200px;overflow:hidden;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
+.card .img-wrap img{width:100%;height:100%;object-fit:cover}
+.card-body{padding:12px}
+.card-body .title{font-weight:600;font-size:.95rem;margin-bottom:4px}
+.card-body .meta{font-size:.8rem;color:#6b7280;margin-bottom:8px;line-height:1.5}
+.card-body .meta span{display:inline-block;margin-right:8px}
+.card-actions{display:flex;gap:6px;flex-wrap:wrap}
+.card-actions input{flex:1;min-width:100px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:.8rem}
+.loading{text-align:center;padding:40px;color:#6b7280}
+#uploadInput{display:none}
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;font-size:.9rem;opacity:0;transition:.3s;z-index:999}
+.toast.show{opacity:1}
+.file-count{font-size:.8rem;color:#6b7280;margin-left:8px}
+</style>
+</head>
+<body>
+<h1>Photo Manager</h1>
+<p class="sub">Token: 20021003</p>
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="document.getElementById('uploadInput').click()">+ Upload</button>
+  <input id="uploadInput" type="file" multiple accept="image/jpeg,image/png,image/webp" onchange="uploadFiles(this.files)">
+  <span class="file-count" id="fileCount"></span>
+  <button class="btn" onclick="loadPhotos()">🔄 Refresh</button>
+</div>
+<div id="toast" class="toast"></div>
+<div class="grid" id="grid"><div class="loading">Loading...</div></div>
+
+<script>
+const API = 'https://api.weiqizhou.com';
+const TOKEN = 'Bearer 20021003';
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+async function api(path, opts = {}) {
+  const { headers: extraHeaders, ...rest } = opts;
+  const r = await fetch(API + path, {
+    ...rest,
+    headers: { 'Authorization': TOKEN, ...extraHeaders },
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error(t); }
+  return r.json();
+}
+
+async function loadPhotos() {
+  document.getElementById('grid').innerHTML = '<div class="loading">Loading...</div>';
+  const data = await api('/api/photos');
+  document.getElementById('fileCount').textContent = data.total + ' photos';
+  document.getElementById('grid').innerHTML = data.photos.map(p => {
+    const m = p.metadata || {};
+    const loc = (m.locationText || m.location || '');
+    const imgUrl = API + '/api/photos/file/' + m.fileName;
+    return `<div class="card">
+      <div class="img-wrap">
+        <img src="${imgUrl}" loading="lazy"
+          onerror="this.parentElement.innerHTML='<span style=color:#9ca3af;font-size:.85rem;>No Preview</span>'">
+      </div>
+      <div class="card-body">
+        <div class="title">${p.title}</div>
+        <div class="meta">
+          ${m.camera ? '<span>📷 ' + m.camera.replace('Canon ','') + '</span>' : ''}
+          ${m.aperture ? '<span>' + m.aperture + '</span>' : ''}
+          ${m.shutter ? '<span>' + m.shutter + '</span>' : ''}
+          ${m.iso ? '<span>ISO ' + m.iso + '</span>' : ''}
+          ${m.focalLength ? '<span>' + m.focalLength + '</span>' : ''}
+          ${m.dimensions ? '<span>' + m.dimensions + '</span>' : ''}
+        </div>
+        <div class="card-actions">
+          <input type="text" placeholder="Location" value="${loc}" id="loc-${p.id}" />
+          <button class="btn" onclick="setLocation('${p.id}')">📍 Save</button>
+          <button class="btn btn-danger" onclick="deletePhoto('${p.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function setLocation(id) {
+  const val = document.getElementById('loc-' + id).value.trim();
+  if (!val) return toast('Enter a location');
+  await api('/api/photos/' + id + '/location', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location: val })
+  });
+  toast('Location saved');
+}
+
+async function deletePhoto(id) {
+  if (!confirm('Delete ' + id + '?')) return;
+  await api('/api/photos/' + id, { method: 'DELETE' });
+  toast('Deleted');
+  loadPhotos();
+}
+
+async function uploadFiles(files) {
+  if (!files.length) return;
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = 'Uploading...'; btn.disabled = true;
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      await api('/api/photos/upload', { method: 'POST', body: fd });
+      toast('Uploaded ' + f.name);
+    } catch (e) {
+      toast('Failed: ' + f.name + ' — ' + e.message);
+    }
+  }
+  btn.textContent = '+ Upload'; btn.disabled = false;
+  loadPhotos();
+}
+
+loadPhotos();
+</script>
+</body>
+</html>

@@ -305,7 +305,7 @@ input:focus-visible {
 .post-card,
 .course-card,
 .photo-detail,
-.photo-stats > div,
+.photo-stat,
 .blog-list,
 .blog-reader {
   border: 1px solid var(--line);
@@ -841,11 +841,34 @@ input:focus-visible {
   gap: 14px;
 }
 
-.photo-stats > div {
+.photo-stat {
   display: grid;
   align-content: center;
   min-height: 150px;
   padding: 18px;
+}
+
+button.photo-stat {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+button.photo-stat:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(11, 114, 133, 0.42);
+  box-shadow: 0 12px 30px rgba(17, 21, 28, 0.08);
+}
+
+button.photo-stat:focus-visible {
+  outline: 3px solid rgba(11, 114, 133, 0.22);
+  outline-offset: 3px;
+}
+
+button.photo-stat:disabled {
+  cursor: default;
 }
 
 .photo-stats svg {

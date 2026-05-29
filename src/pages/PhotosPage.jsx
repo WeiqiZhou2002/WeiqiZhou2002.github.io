@@ -8,9 +8,25 @@ import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLoc
 export default function PhotosPage() {
   const [items, setItems] = React.useState([]);
   const [selected, setSelected] = React.useState(null);
+  const [focusedPhotoId, setFocusedPhotoId] = React.useState("");
+  const [mapResetKey, setMapResetKey] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const cameraCount = React.useMemo(() => countUniqueCameras(items), [items]);
+  const locationCount = React.useMemo(() => items.filter((item) => hasPhotoLocation(item.metadata)).length, [items]);
+  const mapPinCount = React.useMemo(() => items.filter((item) => getPhotoCoordinates(item.metadata)).length, [items]);
+
+  const selectPhoto = React.useCallback((photo, options = {}) => {
+    setSelected(photo);
+    if (options.focusMap !== false) {
+      setFocusedPhotoId(photo?.id || "");
+    }
+  }, []);
+
+  const resetMapView = React.useCallback(() => {
+    setFocusedPhotoId("");
+    setMapResetKey((key) => key + 1);
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
@@ -43,17 +59,23 @@ export default function PhotosPage() {
     >
       <section className="photo-dashboard photo-dashboard-readonly">
         <div className="photo-stats">
-          <div>
+          <div className="photo-stat">
             <ImagePlus size={20} />
             <span>{loading ? "..." : items.length}</span>
             <strong>Photos</strong>
           </div>
-          <div>
+          <button
+            aria-label="Show all photo locations on the map"
+            className="photo-stat photo-stat-action"
+            disabled={!mapPinCount}
+            type="button"
+            onClick={resetMapView}
+          >
             <MapPin size={20} />
-            <span>{items.filter((item) => hasPhotoLocation(item.metadata)).length}</span>
+            <span>{locationCount}</span>
             <strong>Locations</strong>
-          </div>
-          <div>
+          </button>
+          <div className="photo-stat">
             <Camera size={20} />
             <span>{cameraCount}</span>
             <strong>Cameras</strong>
@@ -61,7 +83,13 @@ export default function PhotosPage() {
         </div>
       </section>
 
-      <PhotoMap photos={items} selected={selected} onSelect={setSelected} />
+      <PhotoMap
+        focusedPhotoId={focusedPhotoId}
+        photos={items}
+        resetKey={mapResetKey}
+        selected={selected}
+        onSelect={selectPhoto}
+      />
 
       <section className={selected ? "photo-browser" : "photo-browser photo-browser-empty"}>
         {items.length ? (
@@ -72,7 +100,7 @@ export default function PhotosPage() {
                 className={selected?.id === item.id ? "photo-card is-selected" : "photo-card"}
                 type="button"
                 key={item.id}
-                onClick={() => setSelected(item)}
+                onClick={() => selectPhoto(item)}
               >
                 <img src={item.thumbnail || item.image} alt={item.title} />
               </button>
@@ -99,10 +127,11 @@ function countUniqueCameras(photos) {
   ).size;
 }
 
-function PhotoMap({ photos, selected, onSelect }) {
+function PhotoMap({ focusedPhotoId, photos, resetKey, selected, onSelect }) {
   const mapNodeRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markerLayerRef = React.useRef(null);
+  const markersRef = React.useRef(new Map());
   const photosWithCoordinates = React.useMemo(
     () =>
       photos
@@ -144,42 +173,44 @@ function PhotoMap({ photos, selected, onSelect }) {
     if (!map || !markerLayer) return;
 
     markerLayer.clearLayers();
+    markersRef.current.clear();
 
-    const bounds = [];
     photosWithCoordinates.forEach(({ photo, coordinates }) => {
       const position = [coordinates.latitude, coordinates.longitude];
-      bounds.push(position);
-      L.marker(position, {
+      const marker = L.marker(position, {
         title: photo.title,
-        icon: L.divIcon({
-          className: selected?.id === photo.id ? "photo-map-marker is-selected" : "photo-map-marker",
-          html: "<span></span>",
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-        }),
+        icon: createPhotoMarkerIcon(selected?.id === photo.id),
       })
-        .on("click", () => onSelect(photo))
+        .on("click", () => onSelect(photo, { focusMap: false }))
         .addTo(markerLayer);
+      markersRef.current.set(photo.id, marker);
     });
 
-    if (!bounds.length) {
-      map.setView([20, 0], 2);
-    } else if (bounds.length === 1) {
-      map.setView(bounds[0], 7);
-    } else {
-      map.fitBounds(bounds, { padding: [36, 36], maxZoom: 7 });
-    }
-    requestAnimationFrame(() => map.invalidateSize());
-  }, [photosWithCoordinates, selected?.id, onSelect]);
+    fitMapToAllPhotoPins(map, photosWithCoordinates);
+  }, [photosWithCoordinates, onSelect]);
+
+  React.useEffect(() => {
+    markersRef.current.forEach((marker, photoId) => {
+      marker.setIcon(createPhotoMarkerIcon(selected?.id === photoId));
+    });
+  }, [selected?.id]);
 
   React.useEffect(() => {
     const map = mapRef.current;
-    const coordinates = getPhotoCoordinates(selected?.metadata);
-    if (!map || !coordinates) return;
+    if (!map || !resetKey) return;
+    fitMapToAllPhotoPins(map, photosWithCoordinates);
+  }, [photosWithCoordinates, resetKey]);
+
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusedPhotoId) return;
+    const focusedPhoto = photosWithCoordinates.find(({ photo }) => photo.id === focusedPhotoId);
+    if (!focusedPhoto) return;
+    const { coordinates } = focusedPhoto;
     map.flyTo([coordinates.latitude, coordinates.longitude], Math.max(map.getZoom(), 7), {
       duration: 0.55,
     });
-  }, [selected]);
+  }, [focusedPhotoId, photosWithCoordinates]);
 
   if (!photosWithCoordinates.length) {
     return null;
@@ -190,6 +221,29 @@ function PhotoMap({ photos, selected, onSelect }) {
       <div className="photo-map-canvas" ref={mapNodeRef} />
     </section>
   );
+}
+
+function createPhotoMarkerIcon(isSelected) {
+  return L.divIcon({
+    className: isSelected ? "photo-map-marker is-selected" : "photo-map-marker",
+    html: "<span></span>",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
+function fitMapToAllPhotoPins(map, photosWithCoordinates) {
+  const bounds = photosWithCoordinates.map(({ coordinates }) => [coordinates.latitude, coordinates.longitude]);
+
+  if (!bounds.length) {
+    map.setView([20, 0], 2);
+  } else if (bounds.length === 1) {
+    map.setView(bounds[0], 7);
+  } else {
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 7 });
+  }
+
+  requestAnimationFrame(() => map.invalidateSize());
 }
 
 function PhotoDetail({ photo }) {

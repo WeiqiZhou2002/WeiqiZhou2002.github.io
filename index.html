@@ -1,40 +1,16 @@
----
-layout: default
-title: Home
----
-
-<div class="hero">
-  <h1>Hi, I'm Weiqi Zhou 周玮琦</h1>
-  <p class="subtitle">MS CS @ UC San Diego &middot; Co-Founder @ Maireji &middot; Builder</p>
-  <p class="bio">
-    I'm a computer science master's student at UC San Diego, passionate about 
-    building systems that bridge the gap between complex data and usable tools. 
-    From full-stack health platforms to AI-powered scheduling agents, I love 
-    turning ideas into working software. I'm also the co-founder of 
-    <a href="https://maireji.com" target="_blank">Maireji</a>.
-  </p>
-  <div class="hero-links">
-    <a href="{{ '/resume' | relative_url }}">View Resume →</a>
-    <a href="{{ '/blog' | relative_url }}">Read Blog →</a>
-    <a href="https://github.com/WeiqiZhou2002" target="_blank">GitHub →</a>
-    <a href="https://chat.weiqizhou.com" target="_blank">Chat with My AI 🤖</a>
-  </div>
-</div>
-
-<h2 class="section-title">Latest Posts</h2>
-
-<ul class="post-list">
-  {% for post in site.posts limit:5 %}
-  <li>
-    <a href="{{ post.url | relative_url }}">
-      <h3>{{ post.title }}</h3>
-      <time>{{ post.date | date: "%B %-d, %Y" }}</time>
-      {% if post.excerpt %}
-      <div class="excerpt">{{ post.excerpt | strip_html | truncate: 120 }}</div>
-      {% endif %}
-    </a>
-  </li>
-  {% else %}
-  <li><p style="color: var(--muted);">No posts yet. Stay tuned!</p></li>
-  {% endfor %}
-</ul>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Weiqi Zhou is a UC San Diego MS CS student, builder, and photographer working on AI agents, data systems, and product experiments."
+    />
+    <title>Weiqi Zhou | Builder and CS Student</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 import React from "react";
 import L from "leaflet";
-import { Camera, ImagePlus, MapPin } from "lucide-react";
+import { Camera, ImagePlus, MapPin, X } from "lucide-react";
 import PageShell from "../components/PageShell.jsx";
 import { fetchPhotosFromApi } from "../lib/api.js";
 import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLocation } from "../lib/location.js";
@@ -8,19 +8,35 @@ import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLoc
 export default function PhotosPage() {
   const [items, setItems] = React.useState([]);
   const [selected, setSelected] = React.useState(null);
+  const [detailPosition, setDetailPosition] = React.useState(null);
+  const [detailHeight, setDetailHeight] = React.useState(0);
   const [focusedPhotoId, setFocusedPhotoId] = React.useState("");
   const [mapResetKey, setMapResetKey] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const gridRef = React.useRef(null);
+  const cardRefs = React.useRef(new Map());
   const cameraCount = React.useMemo(() => countUniqueCameras(items), [items]);
   const locationCount = React.useMemo(() => items.filter((item) => hasPhotoLocation(item.metadata)).length, [items]);
   const mapPinCount = React.useMemo(() => items.filter((item) => getPhotoCoordinates(item.metadata)).length, [items]);
 
+  const setPhotoCardRef = React.useCallback((id, node) => {
+    if (node) {
+      cardRefs.current.set(id, node);
+    } else {
+      cardRefs.current.delete(id);
+    }
+  }, []);
+
   const selectPhoto = React.useCallback((photo, options = {}) => {
-    setSelected(photo);
+    setSelected((currentPhoto) => (currentPhoto?.id === photo?.id && options.toggle !== false ? null : photo));
     if (options.focusMap !== false) {
       setFocusedPhotoId(photo?.id || "");
     }
+  }, []);
+
+  const closeDetail = React.useCallback(() => {
+    setSelected(null);
   }, []);
 
   const resetMapView = React.useCallback(() => {
@@ -36,7 +52,7 @@ export default function PhotosPage() {
         if (!alive) return;
         const nextPhotos = remotePhotos || [];
         setItems(nextPhotos);
-        setSelected(nextPhotos[0] || null);
+        setSelected(null);
         setError("");
       })
       .catch(() => {
@@ -50,6 +66,59 @@ export default function PhotosPage() {
       alive = false;
     };
   }, []);
+
+  React.useLayoutEffect(() => {
+    if (!selected) {
+      setDetailPosition(null);
+      setDetailHeight(0);
+      return undefined;
+    }
+
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const grid = gridRef.current;
+      const card = cardRefs.current.get(selected.id);
+      if (!grid || !card) {
+        setDetailPosition(null);
+        return;
+      }
+
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const nextPosition = {
+        left: Math.round(cardRect.left - gridRect.left),
+        top: Math.round(cardRect.bottom - gridRect.top + 8),
+        width: Math.round(cardRect.width),
+      };
+
+      setDetailPosition((currentPosition) =>
+        sameDetailPosition(currentPosition, nextPosition) ? currentPosition : nextPosition,
+      );
+    };
+
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    const grid = gridRef.current;
+    const card = cardRefs.current.get(selected.id);
+    const resizeObserver = new ResizeObserver(schedule);
+    if (grid) resizeObserver.observe(grid);
+    if (card) resizeObserver.observe(card);
+    window.addEventListener("resize", schedule);
+    schedule();
+    const timeout = window.setTimeout(schedule, 250);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", schedule);
+    };
+  }, [selected?.id, items]);
 
   return (
     <PageShell
@@ -91,20 +160,34 @@ export default function PhotosPage() {
         onSelect={selectPhoto}
       />
 
-      <section className={selected ? "photo-browser" : "photo-browser photo-browser-empty"}>
+      <section className={items.length ? "photo-browser" : "photo-browser photo-browser-empty"}>
         {items.length ? (
-          <div className="photo-grid">
+          <div
+            className={selected ? "photo-grid has-open-detail" : "photo-grid"}
+            ref={gridRef}
+            style={{ "--photo-detail-space": selected ? `${detailHeight + 24}px` : "0px" }}
+          >
             {items.map((item) => (
               <button
+                aria-expanded={selected?.id === item.id}
                 aria-label={`Open ${item.title}`}
                 className={selected?.id === item.id ? "photo-card is-selected" : "photo-card"}
                 type="button"
                 key={item.id}
+                ref={(node) => setPhotoCardRef(item.id, node)}
                 onClick={() => selectPhoto(item)}
               >
                 <img src={item.thumbnail || item.image} alt={item.title} />
               </button>
             ))}
+            {selected && detailPosition && (
+              <PhotoAnchoredDetail
+                onClose={closeDetail}
+                onHeightChange={setDetailHeight}
+                photo={selected}
+                position={detailPosition}
+              />
+            )}
           </div>
         ) : (
           <div className="empty-state">
@@ -112,9 +195,18 @@ export default function PhotosPage() {
             <p>{error || "Add photos through the backend and the gallery will update automatically."}</p>
           </div>
         )}
-        {selected && <PhotoDetail photo={selected} />}
       </section>
     </PageShell>
+  );
+}
+
+function sameDetailPosition(currentPosition, nextPosition) {
+  if (!currentPosition && !nextPosition) return true;
+  if (!currentPosition || !nextPosition) return false;
+  return (
+    currentPosition.left === nextPosition.left &&
+    currentPosition.top === nextPosition.top &&
+    currentPosition.width === nextPosition.width
   );
 }
 
@@ -246,9 +338,27 @@ function fitMapToAllPhotoPins(map, photosWithCoordinates) {
   requestAnimationFrame(() => map.invalidateSize());
 }
 
-function PhotoDetail({ photo }) {
+function PhotoAnchoredDetail({ onClose, onHeightChange, photo, position }) {
+  const detailRef = React.useRef(null);
   const locationLabel = getDisplayLocation(photo.metadata);
   const coordinates = getPhotoCoordinates(photo.metadata);
+
+  React.useLayoutEffect(() => {
+    const detail = detailRef.current;
+    if (!detail) return undefined;
+
+    const update = () => {
+      onHeightChange(Math.ceil(detail.getBoundingClientRect().height));
+    };
+
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(detail);
+    update();
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [onHeightChange, photo.id]);
 
   const rows = [
     ["Camera", photo.metadata.camera],
@@ -265,28 +375,42 @@ function PhotoDetail({ photo }) {
   ].filter(([, value]) => Boolean(value));
 
   return (
-    <aside className="photo-detail">
-      <img src={photo.image} alt={photo.title} />
-      <div className="photo-detail-copy">
-        <div className="photo-detail-heading">
-          <p className="eyebrow">Photo detail</p>
-        </div>
+    <aside
+      className="photo-detail"
+      aria-label={`${photo.title} details`}
+      ref={detailRef}
+      style={{
+        left: position.left,
+        top: position.top,
+        width: position.width,
+      }}
+    >
+      <div className="photo-detail-heading">
+        <p className="eyebrow">Photo detail</p>
+        <button
+          aria-label="Close photo detail"
+          className="photo-detail-close"
+          type="button"
+          onClick={onClose}
+        >
+          <X size={20} />
+        </button>
+      </div>
 
-        <div className="exif-grid">
-          {rows.length ? (
-            rows.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            ))
-          ) : (
-            <div>
-              <span>EXIF</span>
-              <strong>No embedded metadata found</strong>
+      <div className="exif-grid">
+        {rows.length ? (
+          rows.map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
             </div>
-          )}
-        </div>
+          ))
+        ) : (
+          <div>
+            <span>EXIF</span>
+            <strong>No embedded metadata found</strong>
+          </div>
+        )}
       </div>
     </aside>
   );

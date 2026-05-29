@@ -1,8 +1,9 @@
 import React from "react";
+import L from "leaflet";
 import { Camera, ImagePlus, MapPin } from "lucide-react";
 import PageShell from "../components/PageShell.jsx";
 import { fetchPhotosFromApi } from "../lib/api.js";
-import { getLocationDependency, hasPhotoLocation, resolvePhotoLocationLabel } from "../lib/location.js";
+import { getLocationDependency, getPhotoCoordinates, hasPhotoLocation, resolvePhotoLocationLabel } from "../lib/location.js";
 
 export default function PhotosPage() {
   const [items, setItems] = React.useState([]);
@@ -59,6 +60,8 @@ export default function PhotosPage() {
         </div>
       </section>
 
+      <PhotoMap photos={items} selected={selected} onSelect={setSelected} />
+
       <section className={selected ? "photo-browser" : "photo-browser photo-browser-empty"}>
         {items.length ? (
           <div className="photo-grid">
@@ -83,6 +86,96 @@ export default function PhotosPage() {
         {selected && <PhotoDetail photo={selected} />}
       </section>
     </PageShell>
+  );
+}
+
+function PhotoMap({ photos, selected, onSelect }) {
+  const mapNodeRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerLayerRef = React.useRef(null);
+  const photosWithCoordinates = React.useMemo(
+    () =>
+      photos
+        .map((photo) => ({
+          photo,
+          coordinates: getPhotoCoordinates(photo.metadata),
+        }))
+        .filter((item) => item.coordinates),
+    [photos],
+  );
+
+  React.useEffect(() => {
+    if (!mapNodeRef.current || mapRef.current) return undefined;
+
+    const map = L.map(mapNodeRef.current, {
+      scrollWheelZoom: false,
+      worldCopyJump: true,
+    });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    markerLayerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerLayerRef.current = null;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const map = mapRef.current;
+    const markerLayer = markerLayerRef.current;
+    if (!map || !markerLayer) return;
+
+    markerLayer.clearLayers();
+
+    const bounds = [];
+    photosWithCoordinates.forEach(({ photo, coordinates }) => {
+      const position = [coordinates.latitude, coordinates.longitude];
+      bounds.push(position);
+      L.marker(position, {
+        title: photo.title,
+        icon: L.divIcon({
+          className: selected?.id === photo.id ? "photo-map-marker is-selected" : "photo-map-marker",
+          html: "<span></span>",
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        }),
+      })
+        .on("click", () => onSelect(photo))
+        .addTo(markerLayer);
+    });
+
+    if (!bounds.length) {
+      map.setView([20, 0], 2);
+    } else if (bounds.length === 1) {
+      map.setView(bounds[0], 7);
+    } else {
+      map.fitBounds(bounds, { padding: [36, 36], maxZoom: 7 });
+    }
+  }, [photosWithCoordinates, selected?.id, onSelect]);
+
+  React.useEffect(() => {
+    const map = mapRef.current;
+    const coordinates = getPhotoCoordinates(selected?.metadata);
+    if (!map || !coordinates) return;
+    map.flyTo([coordinates.latitude, coordinates.longitude], Math.max(map.getZoom(), 7), {
+      duration: 0.55,
+    });
+  }, [selected]);
+
+  if (!photosWithCoordinates.length) {
+    return null;
+  }
+
+  return (
+    <section className="photo-map-panel" aria-label="Photo locations map">
+      <div className="photo-map-canvas" ref={mapNodeRef} />
+    </section>
   );
 }
 

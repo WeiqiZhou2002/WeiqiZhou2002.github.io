@@ -862,6 +862,41 @@ input:focus-visible {
   color: var(--muted);
 }
 
+.photo-map-panel {
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 14px 36px rgba(17, 21, 28, 0.08);
+}
+
+.photo-map-canvas {
+  width: 100%;
+  height: clamp(280px, 36vw, 430px);
+}
+
+.photo-map-marker {
+  display: grid;
+  place-items: center;
+}
+
+.photo-map-marker span {
+  width: 14px;
+  height: 14px;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--rust);
+  box-shadow: 0 0 0 2px rgba(223, 91, 51, 0.42), 0 8px 18px rgba(17, 21, 28, 0.28);
+}
+
+.photo-map-marker.is-selected span {
+  width: 18px;
+  height: 18px;
+  background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(11, 114, 133, 0.28), 0 10px 22px rgba(17, 21, 28, 0.3);
+}
+
 .photo-browser {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.62fr);

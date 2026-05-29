@@ -1,7 +1,7 @@
-import { API_BASE_URL } from "./api.js";
-
-const REVERSE_GEOCODE_ENDPOINT = `${API_BASE_URL}/api/locations/reverse`;
+const REVERSE_GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
 const LOCATION_CACHE_PREFIX = "photo-location-label";
+const MIN_GEOCODE_INTERVAL = 1100;
+let geocodeQueue = Promise.resolve();
 
 function coordinateNumber(value) {
   const number = Number(value);
@@ -65,24 +65,52 @@ function formatCoordinates({ latitude, longitude }) {
 }
 
 function formatReverseGeocode(data) {
-  const label = data?.label || data?.displayName || data?.display_name;
+  const label = data?.label || data?.displayName;
   if (label) return String(label);
 
+  const address = data?.address || {};
   const region =
     data?.region ||
     data?.state ||
     data?.province ||
     data?.principalSubdivision ||
-    data?.address?.state ||
-    data?.address?.province ||
-    data?.address?.region;
-  const country = data?.country || data?.countryName || data?.address?.country;
+    address.state ||
+    address.province ||
+    address.region ||
+    address.state_district;
+  const country = data?.country || data?.countryName || address.country;
 
-  return [region, country].filter(Boolean).join("，");
+  return [region, country].filter(Boolean).join("，") || data?.display_name || "";
 }
 
 function cacheKey({ latitude, longitude }) {
   return `${LOCATION_CACHE_PREFIX}:${latitude.toFixed(5)},${longitude.toFixed(5)}`;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
+async function queuedReverseGeocode(coordinates) {
+  const task = geocodeQueue.then(async () => {
+    await wait(MIN_GEOCODE_INTERVAL);
+    const url = new URL(REVERSE_GEOCODE_ENDPOINT);
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(coordinates.latitude));
+    url.searchParams.set("lon", String(coordinates.longitude));
+    url.searchParams.set("zoom", "5");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("accept-language", "en");
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return response.json();
+  });
+
+  geocodeQueue = task.catch(() => {});
+  return task;
 }
 
 export async function resolvePhotoLocationLabel(metadata) {
@@ -97,13 +125,7 @@ export async function resolvePhotoLocationLabel(metadata) {
   if (cached) return cached;
 
   try {
-    const url = new URL(REVERSE_GEOCODE_ENDPOINT);
-    url.searchParams.set("latitude", String(coordinates.latitude));
-    url.searchParams.set("longitude", String(coordinates.longitude));
-
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const label = formatReverseGeocode(await response.json());
+    const label = formatReverseGeocode(await queuedReverseGeocode(coordinates));
     if (label) {
       if (typeof localStorage !== "undefined") {
         localStorage.setItem(key, label);

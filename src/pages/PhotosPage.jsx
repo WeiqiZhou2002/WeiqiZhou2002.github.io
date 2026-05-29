@@ -3,13 +3,14 @@ import L from "leaflet";
 import { Camera, ImagePlus, MapPin } from "lucide-react";
 import PageShell from "../components/PageShell.jsx";
 import { fetchPhotosFromApi } from "../lib/api.js";
-import { getLocationDependency, getPhotoCoordinates, hasPhotoLocation, resolvePhotoLocationLabel } from "../lib/location.js";
+import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLocation } from "../lib/location.js";
 
 export default function PhotosPage() {
   const [items, setItems] = React.useState([]);
   const [selected, setSelected] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const cameraCount = React.useMemo(() => countUniqueCameras(items), [items]);
 
   React.useEffect(() => {
     let alive = true;
@@ -37,8 +38,8 @@ export default function PhotosPage() {
   return (
     <PageShell
       eyebrow="Photography"
-      title="A backend-powered photo gallery."
-      intro="Photos and metadata are loaded directly from the API, with location shown from saved text or resolved GPS context."
+      title="A photo gallery."
+      intro=""
     >
       <section className="photo-dashboard photo-dashboard-readonly">
         <div className="photo-stats">
@@ -54,7 +55,7 @@ export default function PhotosPage() {
           </div>
           <div>
             <Camera size={20} />
-            <span>{items.filter((item) => item.metadata.camera).length}</span>
+            <span>{cameraCount}</span>
             <strong>Cameras</strong>
           </div>
         </div>
@@ -87,6 +88,15 @@ export default function PhotosPage() {
       </section>
     </PageShell>
   );
+}
+
+function countUniqueCameras(photos) {
+  return new Set(
+    photos
+      .map((photo) => photo.metadata.camera)
+      .filter(Boolean)
+      .map((camera) => camera.trim().replace(/\s+/g, " ").toLowerCase()),
+  ).size;
 }
 
 function PhotoMap({ photos, selected, onSelect }) {
@@ -182,34 +192,16 @@ function PhotoMap({ photos, selected, onSelect }) {
   );
 }
 
-function useResolvedLocation(metadata) {
-  const dependency = getLocationDependency(metadata);
-  const [location, setLocation] = React.useState("");
-
-  React.useEffect(() => {
-    let alive = true;
-    setLocation("");
-    resolvePhotoLocationLabel(metadata).then((label) => {
-      if (alive) setLocation(label);
-    });
-
-    return () => {
-      alive = false;
-    };
-  }, [dependency, metadata]);
-
-  return location;
-}
-
 function PhotoDetail({ photo }) {
-  const locationLabel = useResolvedLocation(photo.metadata);
-  const locationLoading = hasPhotoLocation(photo.metadata) && !locationLabel;
+  const locationLabel = getDisplayLocation(photo.metadata);
+  const coordinates = getPhotoCoordinates(photo.metadata);
 
   const rows = [
     ["Camera", photo.metadata.camera],
     ["Lens", photo.metadata.lens],
     ["Created", photo.metadata.created],
-    ["Location", locationLoading ? "Resolving location..." : locationLabel],
+    ["Location", locationLabel],
+    ["GPS", coordinates ? formatCoordinates(coordinates) : ""],
     ["Aperture", photo.metadata.aperture],
     ["Shutter", photo.metadata.shutter],
     ["ISO", photo.metadata.iso],

@@ -4,16 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Photo Manager</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f0f2f5;color:#1a1a1a;padding:20px;max-width:1200px;margin:0 auto}
 h1{margin-bottom:8px}
 .sub{color:#6b7280;font-size:.9rem;margin-bottom:20px}
 .toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
-.btn{padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:.9rem;transition:.2s}
+.btn{padding:8px 14px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:.9rem;transition:.2s}
 .btn:hover{opacity:.85}
+.btn:disabled{cursor:not-allowed;opacity:.55}
 .btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
 .btn-danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.btn-ghost{border-color:transparent;background:transparent}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
 .card{background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb}
 .card .img-wrap{width:100%;height:200px;overflow:hidden;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
@@ -22,35 +26,85 @@ h1{margin-bottom:8px}
 .card-body .title{font-weight:600;font-size:.95rem;margin-bottom:4px}
 .card-body .meta{font-size:.8rem;color:#6b7280;margin-bottom:8px;line-height:1.5}
 .card-body .meta span{display:inline-block;margin-right:8px}
-.card-actions{display:flex;gap:6px;flex-wrap:wrap}
-.card-actions input{flex:1;min-width:100px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:.8rem}
+.card-actions{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.card-actions input{min-width:0;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:.85rem}
+.card-actions .wide{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+.gps-chip{display:inline-flex;align-items:center;max-width:100%;padding:3px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:.75rem}
 .loading{text-align:center;padding:40px;color:#6b7280}
 #uploadInput{display:none}
 .toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;font-size:.9rem;opacity:0;transition:.3s;z-index:999}
 .toast.show{opacity:1}
 .file-count{font-size:.8rem;color:#6b7280;margin-left:8px}
+.map-modal[hidden]{display:none}
+.map-modal{position:fixed;inset:0;z-index:900;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:20px}
+.map-dialog{width:min(900px,100%);background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 24px 80px rgba(15,23,42,.26);overflow:hidden}
+.map-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #e5e7eb}
+.map-header h2{font-size:1rem;margin-bottom:4px}
+.map-header p{font-size:.85rem;color:#6b7280}
+#pinMap{height:460px;width:100%;background:#e5e7eb}
+.map-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid #e5e7eb;flex-wrap:wrap}
+.map-footer .gps-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;color:#374151}
+.map-footer .actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:640px){
+  body{padding:14px}
+  .card-actions{grid-template-columns:1fr}
+  .card-actions .wide{grid-column:auto}
+  .map-modal{padding:10px}
+  #pinMap{height:380px}
+}
 </style>
 </head>
 <body>
 <h1>Photo Manager</h1>
-<p class="sub">Token: 20021003</p>
+<p class="sub">Manage photo files, display locations, and precise GPS pins.</p>
 <div class="toolbar">
-  <button class="btn btn-primary" onclick="document.getElementById('uploadInput').click()">+ Upload</button>
-  <input id="uploadInput" type="file" multiple accept="image/jpeg,image/png,image/webp" onchange="uploadFiles(this.files)">
+  <button class="btn btn-primary" id="uploadButton" type="button">Upload</button>
+  <input id="uploadInput" type="file" multiple accept="image/jpeg,image/png,image/webp">
   <span class="file-count" id="fileCount"></span>
-  <button class="btn" onclick="loadPhotos()">🔄 Refresh</button>
+  <button class="btn" id="refreshButton" type="button">Refresh</button>
 </div>
 <div id="toast" class="toast"></div>
 <div class="grid" id="grid"><div class="loading">Loading...</div></div>
+
+<div class="map-modal" id="gpsModal" role="dialog" aria-modal="true" aria-labelledby="gpsModalTitle" hidden>
+  <div class="map-dialog">
+    <div class="map-header">
+      <div>
+        <h2 id="gpsModalTitle">Set photo GPS</h2>
+        <p id="gpsPhotoTitle">Click the map or drag the marker to choose precise coordinates.</p>
+      </div>
+      <button class="btn btn-ghost" id="closeGpsModal" type="button">Close</button>
+    </div>
+    <div id="pinMap"></div>
+    <div class="map-footer">
+      <span class="gps-value" id="gpsValue">No point selected</span>
+      <div class="actions">
+        <button class="btn" id="clearGpsButton" type="button">Clear GPS</button>
+        <button class="btn btn-primary" id="saveGpsButton" type="button">Save GPS</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const API = 'https://api.weiqizhou.com';
 const TOKEN = 'Bearer 20021003';
 
+let photos = [];
+let activeGpsPhotoId = '';
+let pendingGps = null;
+let gpsMap = null;
+let gpsMarker = null;
+
 function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast show';
-  setTimeout(() => t.className = 'toast', 2500);
+  t.textContent = msg;
+  t.className = 'toast show';
+  setTimeout(() => { t.className = 'toast'; }, 2500);
+}
+
+function reportError(error) {
+  toast(error?.message || 'Request failed');
 }
 
 async function api(path, opts = {}) {
@@ -59,78 +113,302 @@ async function api(path, opts = {}) {
     ...rest,
     headers: { 'Authorization': TOKEN, ...extraHeaders },
   });
-  if (!r.ok) { const t = await r.text(); throw new Error(t); }
-  return r.json();
+  const text = await r.text();
+  if (!r.ok) throw new Error(text || (r.status + ' ' + r.statusText));
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
-async function loadPhotos() {
-  document.getElementById('grid').innerHTML = '<div class="loading">Loading...</div>';
-  const data = await api('/api/photos');
-  document.getElementById('fileCount').textContent = data.total + ' photos';
-  document.getElementById('grid').innerHTML = data.photos.map(p => {
-    const m = p.metadata || {};
-    const loc = (m.locationText || m.location || '');
-    const imgUrl = API + '/api/photos/file/' + m.fileName;
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function resolvePhotoId(photo) {
+  return String(photo.id || photo._id || photo.slug || photo.filename || '');
+}
+
+function resolveImageUrl(photo) {
+  const metadata = photo.metadata || {};
+  const value = photo.thumbnailUrl || photo.imageUrl || photo.url || photo.src || (metadata.fileName ? '/api/photos/file/' + metadata.fileName : '');
+  if (!value) return '';
+  try {
+    return new URL(value, API + '/').href;
+  } catch {
+    return value;
+  }
+}
+
+function coordinateNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function coordinatesFromObject(value) {
+  if (!value || typeof value !== 'object') return null;
+  const latitude = coordinateNumber(value.latitude ?? value.lat);
+  const longitude = coordinateNumber(value.longitude ?? value.lng ?? value.lon);
+  if (latitude === null || longitude === null) return null;
+  return { latitude, longitude };
+}
+
+function coordinatesFromString(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+  return match ? { latitude: Number(match[1]), longitude: Number(match[2]) } : null;
+}
+
+function getGps(metadata) {
+  return coordinatesFromObject(metadata?.gps) || coordinatesFromString(metadata?.gps) || coordinatesFromObject(metadata?.location);
+}
+
+function getLocationText(metadata) {
+  if (typeof metadata?.location === 'string' && !coordinatesFromString(metadata.location)) return metadata.location.trim();
+  if (typeof metadata?.locationText === 'string' && !coordinatesFromString(metadata.locationText)) return metadata.locationText.trim();
+  return '';
+}
+
+function formatGps(gps) {
+  return gps ? gps.latitude.toFixed(6) + ', ' + gps.longitude.toFixed(6) : '';
+}
+
+function renderPhotos(records) {
+  const grid = document.getElementById('grid');
+  if (!records.length) {
+    grid.innerHTML = '<div class="loading">No photos yet.</div>';
+    return;
+  }
+
+  grid.innerHTML = records.map((photo) => {
+    const id = resolvePhotoId(photo);
+    const metadata = photo.metadata || {};
+    const location = getLocationText(metadata);
+    const gps = getGps(metadata);
+    const imageUrl = resolveImageUrl(photo);
     return `<div class="card">
       <div class="img-wrap">
-        <img src="${imgUrl}" loading="lazy"
-          onerror="this.parentElement.innerHTML='<span style=color:#9ca3af;font-size:.85rem;>No Preview</span>'">
+        ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" loading="lazy" alt="${escapeHtml(photo.title || id)}" onerror="this.parentElement.innerHTML='<span style=&quot;color:#9ca3af;font-size:.85rem;&quot;>No Preview</span>'">` : '<span style="color:#9ca3af;font-size:.85rem;">No Preview</span>'}
       </div>
       <div class="card-body">
-        <div class="title">${p.title}</div>
+        <div class="title">${escapeHtml(photo.title || metadata.fileName || id)}</div>
         <div class="meta">
-          ${m.camera ? '<span>📷 ' + m.camera.replace('Canon ','') + '</span>' : ''}
-          ${m.aperture ? '<span>' + m.aperture + '</span>' : ''}
-          ${m.shutter ? '<span>' + m.shutter + '</span>' : ''}
-          ${m.iso ? '<span>ISO ' + m.iso + '</span>' : ''}
-          ${m.focalLength ? '<span>' + m.focalLength + '</span>' : ''}
-          ${m.dimensions ? '<span>' + m.dimensions + '</span>' : ''}
+          ${metadata.camera ? '<span>Camera ' + escapeHtml(String(metadata.camera).replace('Canon ', '')) + '</span>' : ''}
+          ${metadata.aperture ? '<span>' + escapeHtml(metadata.aperture) + '</span>' : ''}
+          ${metadata.shutter ? '<span>' + escapeHtml(metadata.shutter) + '</span>' : ''}
+          ${metadata.iso ? '<span>ISO ' + escapeHtml(metadata.iso) + '</span>' : ''}
+          ${metadata.focalLength ? '<span>' + escapeHtml(metadata.focalLength) + '</span>' : ''}
+          ${metadata.dimensions ? '<span>' + escapeHtml(metadata.dimensions) + '</span>' : ''}
+          ${gps ? '<span class="gps-chip">GPS ' + escapeHtml(formatGps(gps)) + '</span>' : ''}
         </div>
         <div class="card-actions">
-          <input type="text" placeholder="Location" value="${loc}" id="loc-${p.id}" />
-          <button class="btn" onclick="setLocation('${p.id}')">📍 Save</button>
-          <button class="btn btn-danger" onclick="deletePhoto('${p.id}')">🗑</button>
+          <input type="text" placeholder="Display location" value="${escapeHtml(location)}" data-location-input="${escapeHtml(id)}">
+          <button class="btn" type="button" data-action="location" data-id="${escapeHtml(id)}">Save</button>
+          <div class="wide">
+            <button class="btn" type="button" data-action="gps" data-id="${escapeHtml(id)}">${gps ? 'Edit GPS' : 'Pin GPS'}</button>
+            <button class="btn btn-danger" type="button" data-action="delete" data-id="${escapeHtml(id)}">Delete</button>
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-async function setLocation(id) {
-  const val = document.getElementById('loc-' + id).value.trim();
-  if (!val) return toast('Enter a location');
-  await api('/api/photos/' + id + '/location', {
+async function loadPhotos() {
+  document.getElementById('grid').innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const data = await api('/api/photos');
+    photos = Array.isArray(data) ? data : (data?.photos || []);
+    document.getElementById('fileCount').textContent = photos.length + ' photos';
+    renderPhotos(photos);
+  } catch (error) {
+    document.getElementById('grid').innerHTML = '<div class="loading">Failed to load photos.</div>';
+    toast('Load failed: ' + error.message);
+  }
+}
+
+function findPhoto(id) {
+  return photos.find((photo) => resolvePhotoId(photo) === id);
+}
+
+function findLocationInput(id) {
+  return Array.from(document.querySelectorAll('[data-location-input]')).find((input) => input.dataset.locationInput === id);
+}
+
+async function patchPhotoLocation(id, body) {
+  return api('/api/photos/' + encodeURIComponent(id) + '/location', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ location: val })
+    body: JSON.stringify(body),
   });
+}
+
+async function setLocation(id) {
+  const input = findLocationInput(id);
+  if (!input) return;
+  await patchPhotoLocation(id, { location: input.value.trim() });
   toast('Location saved');
+  loadPhotos();
+}
+
+function ensureGpsMap() {
+  if (gpsMap) return true;
+  if (typeof L === 'undefined') {
+    toast('Map library did not load');
+    return false;
+  }
+
+  gpsMap = L.map('pinMap', {
+    scrollWheelZoom: true,
+    worldCopyJump: true,
+  }).setView([20, 0], 2);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(gpsMap);
+
+  gpsMap.on('click', (event) => {
+    setPendingGps(event.latlng.lat, event.latlng.lng);
+  });
+
+  return true;
+}
+
+function setPendingGps(latitude, longitude) {
+  pendingGps = {
+    latitude: Number(latitude.toFixed(6)),
+    longitude: Number(longitude.toFixed(6)),
+  };
+  document.getElementById('gpsValue').textContent = formatGps(pendingGps);
+
+  const latLng = [pendingGps.latitude, pendingGps.longitude];
+  if (!gpsMarker) {
+    gpsMarker = L.marker(latLng, { draggable: true }).addTo(gpsMap);
+    gpsMarker.on('dragend', () => {
+      const next = gpsMarker.getLatLng();
+      setPendingGps(next.lat, next.lng);
+    });
+  } else {
+    gpsMarker.setLatLng(latLng);
+  }
+}
+
+function clearPendingGpsMarker() {
+  pendingGps = null;
+  document.getElementById('gpsValue').textContent = 'No point selected';
+  if (gpsMarker) {
+    gpsMarker.remove();
+    gpsMarker = null;
+  }
+}
+
+function openGpsPicker(id) {
+  const photo = findPhoto(id);
+  activeGpsPhotoId = id;
+  const metadata = photo?.metadata || {};
+  const gps = getGps(metadata);
+
+  document.getElementById('gpsModal').hidden = false;
+  document.getElementById('gpsPhotoTitle').textContent = photo?.title || metadata.fileName || id;
+  if (!ensureGpsMap()) return;
+
+  setTimeout(() => {
+    gpsMap.invalidateSize();
+    if (gps) {
+      setPendingGps(gps.latitude, gps.longitude);
+      gpsMap.setView([gps.latitude, gps.longitude], Math.max(gpsMap.getZoom(), 9));
+    } else {
+      clearPendingGpsMarker();
+      gpsMap.setView([20, 0], 2);
+    }
+  }, 80);
+}
+
+function closeGpsPicker() {
+  document.getElementById('gpsModal').hidden = true;
+  activeGpsPhotoId = '';
+  pendingGps = null;
+}
+
+async function saveGps() {
+  if (!activeGpsPhotoId) return;
+  if (!pendingGps) return toast('Pick a point on the map first');
+  await patchPhotoLocation(activeGpsPhotoId, { gps: pendingGps });
+  toast('GPS saved');
+  closeGpsPicker();
+  loadPhotos();
+}
+
+async function clearGps() {
+  if (!activeGpsPhotoId) return;
+  await patchPhotoLocation(activeGpsPhotoId, { gps: null });
+  toast('GPS cleared');
+  closeGpsPicker();
+  loadPhotos();
 }
 
 async function deletePhoto(id) {
   if (!confirm('Delete ' + id + '?')) return;
-  await api('/api/photos/' + id, { method: 'DELETE' });
+  await api('/api/photos/' + encodeURIComponent(id), { method: 'DELETE' });
   toast('Deleted');
   loadPhotos();
 }
 
 async function uploadFiles(files) {
   if (!files.length) return;
-  const btn = document.querySelector('.btn-primary');
-  btn.textContent = 'Uploading...'; btn.disabled = true;
-  for (const f of files) {
+  const btn = document.getElementById('uploadButton');
+  btn.textContent = 'Uploading...';
+  btn.disabled = true;
+
+  for (const file of files) {
     const fd = new FormData();
-    fd.append('file', f);
+    fd.append('file', file);
     try {
       await api('/api/photos/upload', { method: 'POST', body: fd });
-      toast('Uploaded ' + f.name);
-    } catch (e) {
-      toast('Failed: ' + f.name + ' — ' + e.message);
+      toast('Uploaded ' + file.name);
+    } catch (error) {
+      toast('Failed: ' + file.name + ' - ' + error.message);
     }
   }
-  btn.textContent = '+ Upload'; btn.disabled = false;
+
+  btn.textContent = 'Upload';
+  btn.disabled = false;
+  document.getElementById('uploadInput').value = '';
   loadPhotos();
 }
+
+document.getElementById('uploadButton').addEventListener('click', () => {
+  document.getElementById('uploadInput').click();
+});
+
+document.getElementById('uploadInput').addEventListener('change', (event) => {
+  uploadFiles(event.target.files);
+});
+
+document.getElementById('refreshButton').addEventListener('click', loadPhotos);
+document.getElementById('closeGpsModal').addEventListener('click', closeGpsPicker);
+document.getElementById('saveGpsButton').addEventListener('click', () => saveGps().catch(reportError));
+document.getElementById('clearGpsButton').addEventListener('click', () => clearGps().catch(reportError));
+document.getElementById('gpsModal').addEventListener('click', (event) => {
+  if (event.target.id === 'gpsModal') closeGpsPicker();
+});
+
+document.getElementById('grid').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const id = button.dataset.id;
+  if (button.dataset.action === 'location') setLocation(id).catch(reportError);
+  if (button.dataset.action === 'gps') openGpsPicker(id);
+  if (button.dataset.action === 'delete') deletePhoto(id).catch(reportError);
+});
 
 loadPhotos();
 </script>

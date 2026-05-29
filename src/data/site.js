@@ -46,6 +46,7 @@ export const projects = [
     body: "A copilot for travel reimbursement workflows: collecting trip context, organizing evidence, and preparing a cleaner claim package.",
     tags: ["AI copilot", "Workflow", "Claims"],
     href: "#/projects",
+    href: "https://copilot.weiqizhou.com/",
   },
   {
     icon: Database,

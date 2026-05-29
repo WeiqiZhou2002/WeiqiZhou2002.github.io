@@ -48,12 +48,19 @@ function normalizePhotoFromApi(record) {
   const image = resolveApiAssetUrl(record.imageUrl || record.url || record.src);
   if (!image) return null;
   const metadata = record.metadata || {};
+  const metadataLocation = typeof metadata.location === "string" ? metadata.location : "";
   const location =
+    metadataLocation ||
     metadata.locationText ||
-    metadata.location ||
     record.location?.label ||
     record.location?.name ||
     (typeof record.location === "string" ? record.location : "");
+  const gps =
+    metadata.gps ||
+    (metadata.location && typeof metadata.location === "object" ? metadata.location : "") ||
+    record.gps ||
+    record.location?.gps ||
+    "";
 
   return {
     id: String(record.id || record._id || record.slug || record.filename || image),
@@ -67,7 +74,7 @@ function normalizePhotoFromApi(record) {
       created: metadata.created || record.createdAt || record.takenAt || "",
       location,
       locationText: metadata.locationText || "",
-      gps: metadata.gps || "",
+      gps,
       aperture: metadata.aperture || "",
       shutter: metadata.shutter || "",
       iso: metadata.iso || "",

@@ -15,7 +15,7 @@ export default function HomePage() {
             <span>周玮琦</span>
           </h1>
           <p>
-            I build practical software where data, AI, and everyday workflows meet. The site is now organized as a set of focused pages, with quick snapshots below.
+            I build practical software where data, AI, and everyday workflows meet.
           </p>
           <div className="hero-actions">
             <a className="button button-primary" href="#/projects">
@@ -25,10 +25,6 @@ export default function HomePage() {
             <a className="button" href="https://github.com/WeiqiZhou2002" target="_blank" rel="noreferrer">
               <Github size={18} />
               GitHub
-            </a>
-            <a className="button" href="https://chat.weiqizhou.com" target="_blank" rel="noreferrer">
-              <MessageCircle size={18} />
-              Chat with my AI
             </a>
           </div>
         </div>

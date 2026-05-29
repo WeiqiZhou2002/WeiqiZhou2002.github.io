@@ -52,8 +52,8 @@ export default function HomePage() {
         <SnapshotCard
           icon={Camera}
           eyebrow="Photos"
-          title="A gallery page with upload, EXIF, and editable location."
-          body="Click into photos for camera metadata and add missing location details yourself."
+          title="A backend-powered gallery with EXIF and location."
+          body="Click into photos for camera metadata and saved location context from the API."
           href="#/photos"
         />
         <SnapshotCard

@@ -304,8 +304,6 @@ input:focus-visible {
 .project-card,
 .post-card,
 .course-card,
-.upload-card,
-.token-card,
 .photo-detail,
 .photo-stats > div,
 .blog-list,
@@ -723,9 +721,7 @@ input:focus-visible {
   gap: 8px;
 }
 
-.timeline-arrows button,
-.location-editor button,
-.token-editor button {
+.timeline-arrows button {
   display: inline-grid;
   width: 40px;
   height: 40px;
@@ -734,11 +730,6 @@ input:focus-visible {
   border-radius: var(--radius);
   background: white;
   cursor: pointer;
-}
-
-.token-editor button:disabled {
-  cursor: default;
-  opacity: 0.62;
 }
 
 .timeline-wrap {
@@ -841,85 +832,7 @@ input:focus-visible {
 }
 
 .photo-dashboard {
-  display: grid;
-  grid-template-columns: 0.42fr 1fr;
-  gap: 14px;
   margin-bottom: 18px;
-}
-
-.upload-stack {
-  display: grid;
-  gap: 14px;
-}
-
-.upload-card {
-  display: grid;
-  align-content: center;
-  min-height: 138px;
-  padding: 20px;
-  border-style: dashed;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.upload-card input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.upload-card svg {
-  color: var(--teal);
-}
-
-.upload-card strong {
-  margin-top: 14px;
-  font-size: 1.2rem;
-}
-
-.upload-card span {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.token-card {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.76);
-}
-
-.token-card-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.token-card-heading svg {
-  color: var(--teal);
-}
-
-.token-card-heading strong {
-  font-size: 0.98rem;
-}
-
-.token-editor {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-}
-
-.token-editor input {
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-  padding: 9px 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: white;
-  color: var(--ink);
 }
 
 .photo-stats {
@@ -1055,8 +968,7 @@ input:focus-visible {
   background: rgba(247, 244, 237, 0.58);
 }
 
-.exif-grid span,
-.location-editor > span {
+.exif-grid span {
   display: block;
   color: var(--rust);
   font-family: var(--mono);
@@ -1070,29 +982,6 @@ input:focus-visible {
   margin-top: 4px;
   overflow-wrap: break-word;
   font-size: 0.9rem;
-}
-
-.location-editor {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.location-editor div {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-}
-
-.location-editor input {
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-  padding: 9px 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: white;
-  color: var(--ink);
 }
 
 .site-footer {
@@ -1121,7 +1010,6 @@ input:focus-visible {
 @media (max-width: 1020px) {
   .home-hero,
   .two-column-preview,
-  .photo-dashboard,
   .photo-browser,
   .blog-layout {
     grid-template-columns: 1fr;

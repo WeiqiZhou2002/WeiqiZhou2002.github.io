@@ -1,15 +1,6 @@
 export const DEFAULT_API_BASE_URL = "https://api.weiqizhou.com";
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
-export const API_TOKEN_STORAGE_KEY = "weiqi-api-token";
-
-export function getStoredApiToken() {
-  if (typeof localStorage === "undefined") return "";
-  return localStorage.getItem(API_TOKEN_STORAGE_KEY) || "";
-}
-
-export function getApiToken() {
-  return import.meta.env.VITE_API_TOKEN || getStoredApiToken();
-}
+const env = import.meta.env || {};
+export const API_BASE_URL = (env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
 
 function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
@@ -26,16 +17,7 @@ function resolveApiAssetUrl(value) {
 
 async function apiRequest(path, options = {}) {
   if (!API_BASE_URL) return null;
-  const { auth = true, headers, ...init } = options;
-  const token = getApiToken();
-  const requestHeaders = {
-    ...headers,
-    ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-  const response = await fetch(apiUrl(path), {
-    ...init,
-    headers: Object.keys(requestHeaders).length ? requestHeaders : undefined,
-  });
+  const response = await fetch(apiUrl(path), options);
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
@@ -47,28 +29,6 @@ export async function fetchPhotosFromApi() {
   const data = await apiRequest("/api/photos");
   const records = Array.isArray(data) ? data : data?.photos;
   return Array.isArray(records) ? records.map(normalizePhotoFromApi).filter(Boolean) : null;
-}
-
-export async function uploadPhotoToApi(file, metadata) {
-  if (!API_BASE_URL) return null;
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("metadata", JSON.stringify(metadata));
-  const data = await apiRequest("/api/photos", {
-    method: "POST",
-    auth: true,
-    body: formData,
-  });
-  return normalizePhotoFromApi(data?.photo || data);
-}
-
-export async function updatePhotoLocationInApi(photoId, location) {
-  return apiRequest(`/api/photos/${encodeURIComponent(photoId)}`, {
-    method: "PATCH",
-    auth: true,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ location }),
-  });
 }
 
 export async function fetchPostsFromApi() {
@@ -87,8 +47,10 @@ function normalizePhotoFromApi(record) {
   if (!record) return null;
   const image = resolveApiAssetUrl(record.imageUrl || record.url || record.src);
   if (!image) return null;
+  const metadata = record.metadata || {};
   const location =
-    record.metadata?.location ||
+    metadata.locationText ||
+    metadata.location ||
     record.location?.label ||
     record.location?.name ||
     (typeof record.location === "string" ? record.location : "");
@@ -100,16 +62,18 @@ function normalizePhotoFromApi(record) {
     thumbnail: resolveApiAssetUrl(record.thumbnailUrl) || image,
     featured: Boolean(record.featured),
     metadata: {
-      camera: record.metadata?.camera || record.camera || "",
-      lens: record.metadata?.lens || record.lens || "",
-      created: record.metadata?.created || record.createdAt || record.takenAt || "",
+      camera: metadata.camera || record.camera || "",
+      lens: metadata.lens || record.lens || "",
+      created: metadata.created || record.createdAt || record.takenAt || "",
       location,
-      aperture: record.metadata?.aperture || "",
-      shutter: record.metadata?.shutter || "",
-      iso: record.metadata?.iso || "",
-      focalLength: record.metadata?.focalLength || "",
-      dimensions: record.metadata?.dimensions || record.dimensions || "",
-      fileName: record.metadata?.fileName || record.filename || "",
+      locationText: metadata.locationText || "",
+      gps: metadata.gps || "",
+      aperture: metadata.aperture || "",
+      shutter: metadata.shutter || "",
+      iso: metadata.iso || "",
+      focalLength: metadata.focalLength || "",
+      dimensions: metadata.dimensions || record.dimensions || "",
+      fileName: metadata.fileName || record.filename || "",
     },
   };
 }

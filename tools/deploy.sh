@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy main site + admin tools to hermes-web
+# Deploy React site + admin tools to hermes-web
 set -euo pipefail
 
 export NVM_DIR="$HOME/.nvm"
@@ -17,9 +17,8 @@ npm run build
 echo "=== Deploying to hermes-web/www ==="
 rsync -a --delete dist/ ~/hermes-web/www/
 
-echo "=== Deploying admin tools ==="
+echo "=== Deploying photo admin tool ==="
 mkdir -p ~/hermes-web/www/photos-admin
 cp tools/photos-manager.html ~/hermes-web/www/photos-admin/index.html
-cp tools/blog-manager.py ~/hermes-web/
 
 echo "=== Done ==="

@@ -1,6 +1,6 @@
 import React from "react";
 import L from "leaflet";
-import { Camera, ImagePlus, MapPin, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ImagePlus, MapPin, X } from "lucide-react";
 import PageShell from "../components/PageShell.jsx";
 import { fetchPhotosFromApi } from "../lib/api.js";
 import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLocation } from "../lib/location.js";
@@ -8,28 +8,20 @@ import { formatCoordinates, getDisplayLocation, getPhotoCoordinates, hasPhotoLoc
 export default function PhotosPage() {
   const [items, setItems] = React.useState([]);
   const [selected, setSelected] = React.useState(null);
-  const [detailPosition, setDetailPosition] = React.useState(null);
-  const [detailHeight, setDetailHeight] = React.useState(0);
   const [focusedPhotoId, setFocusedPhotoId] = React.useState("");
   const [mapResetKey, setMapResetKey] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const gridRef = React.useRef(null);
-  const cardRefs = React.useRef(new Map());
   const cameraCount = React.useMemo(() => countUniqueCameras(items), [items]);
   const locationCount = React.useMemo(() => items.filter((item) => hasPhotoLocation(item.metadata)).length, [items]);
   const mapPinCount = React.useMemo(() => items.filter((item) => getPhotoCoordinates(item.metadata)).length, [items]);
-
-  const setPhotoCardRef = React.useCallback((id, node) => {
-    if (node) {
-      cardRefs.current.set(id, node);
-    } else {
-      cardRefs.current.delete(id);
-    }
-  }, []);
+  const selectedIndex = React.useMemo(
+    () => (selected ? items.findIndex((item) => item.id === selected.id) : -1),
+    [items, selected],
+  );
 
   const selectPhoto = React.useCallback((photo, options = {}) => {
-    setSelected((currentPhoto) => (currentPhoto?.id === photo?.id && options.toggle !== false ? null : photo));
+    setSelected(photo);
     if (options.focusMap !== false) {
       setFocusedPhotoId(photo?.id || "");
     }
@@ -38,6 +30,16 @@ export default function PhotosPage() {
   const closeDetail = React.useCallback(() => {
     setSelected(null);
   }, []);
+
+  const selectRelativePhoto = React.useCallback(
+    (direction) => {
+      if (!items.length) return;
+      const currentIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
+      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + direction + items.length) % items.length;
+      setSelected(items[nextIndex]);
+    },
+    [items, selected],
+  );
 
   const resetMapView = React.useCallback(() => {
     setFocusedPhotoId("");
@@ -66,59 +68,6 @@ export default function PhotosPage() {
       alive = false;
     };
   }, []);
-
-  React.useLayoutEffect(() => {
-    if (!selected) {
-      setDetailPosition(null);
-      setDetailHeight(0);
-      return undefined;
-    }
-
-    let frame = 0;
-
-    const update = () => {
-      frame = 0;
-      const grid = gridRef.current;
-      const card = cardRefs.current.get(selected.id);
-      if (!grid || !card) {
-        setDetailPosition(null);
-        return;
-      }
-
-      const gridRect = grid.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      const nextPosition = {
-        left: Math.round(cardRect.left - gridRect.left),
-        top: Math.round(cardRect.bottom - gridRect.top + 8),
-        width: Math.round(cardRect.width),
-      };
-
-      setDetailPosition((currentPosition) =>
-        sameDetailPosition(currentPosition, nextPosition) ? currentPosition : nextPosition,
-      );
-    };
-
-    const schedule = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(update);
-    };
-
-    const grid = gridRef.current;
-    const card = cardRefs.current.get(selected.id);
-    const resizeObserver = new ResizeObserver(schedule);
-    if (grid) resizeObserver.observe(grid);
-    if (card) resizeObserver.observe(card);
-    window.addEventListener("resize", schedule);
-    schedule();
-    const timeout = window.setTimeout(schedule, 250);
-
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", schedule);
-    };
-  }, [selected?.id, items]);
 
   return (
     <PageShell
@@ -162,32 +111,18 @@ export default function PhotosPage() {
 
       <section className={items.length ? "photo-browser" : "photo-browser photo-browser-empty"}>
         {items.length ? (
-          <div
-            className={selected ? "photo-grid has-open-detail" : "photo-grid"}
-            ref={gridRef}
-            style={{ "--photo-detail-space": selected ? `${detailHeight + 24}px` : "0px" }}
-          >
+          <div className="photo-grid">
             {items.map((item) => (
               <button
-                aria-expanded={selected?.id === item.id}
                 aria-label={`Open ${item.title}`}
                 className={selected?.id === item.id ? "photo-card is-selected" : "photo-card"}
                 type="button"
                 key={item.id}
-                ref={(node) => setPhotoCardRef(item.id, node)}
                 onClick={() => selectPhoto(item)}
               >
                 <img src={item.thumbnail || item.image} alt={item.title} />
               </button>
             ))}
-            {selected && detailPosition && (
-              <PhotoAnchoredDetail
-                onClose={closeDetail}
-                onHeightChange={setDetailHeight}
-                photo={selected}
-                position={detailPosition}
-              />
-            )}
           </div>
         ) : (
           <div className="empty-state">
@@ -196,17 +131,19 @@ export default function PhotosPage() {
           </div>
         )}
       </section>
-    </PageShell>
-  );
-}
 
-function sameDetailPosition(currentPosition, nextPosition) {
-  if (!currentPosition && !nextPosition) return true;
-  if (!currentPosition || !nextPosition) return false;
-  return (
-    currentPosition.left === nextPosition.left &&
-    currentPosition.top === nextPosition.top &&
-    currentPosition.width === nextPosition.width
+      {selected && (
+        <PhotoDetailWindow
+          canNavigate={items.length > 1}
+          currentIndex={selectedIndex}
+          onClose={closeDetail}
+          onNext={() => selectRelativePhoto(1)}
+          onPrevious={() => selectRelativePhoto(-1)}
+          photo={selected}
+          totalCount={items.length}
+        />
+      )}
+    </PageShell>
   );
 }
 
@@ -338,27 +275,34 @@ function fitMapToAllPhotoPins(map, photosWithCoordinates) {
   requestAnimationFrame(() => map.invalidateSize());
 }
 
-function PhotoAnchoredDetail({ onClose, onHeightChange, photo, position }) {
-  const detailRef = React.useRef(null);
+function PhotoDetailWindow({ canNavigate, currentIndex, onClose, onNext, onPrevious, photo, totalCount }) {
+  const closeButtonRef = React.useRef(null);
   const locationLabel = getDisplayLocation(photo.metadata);
   const coordinates = getPhotoCoordinates(photo.metadata);
 
-  React.useLayoutEffect(() => {
-    const detail = detailRef.current;
-    if (!detail) return undefined;
-
-    const update = () => {
-      onHeightChange(Math.ceil(detail.getBoundingClientRect().height));
+  React.useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft" && canNavigate) {
+        event.preventDefault();
+        onPrevious();
+      }
+      if (event.key === "ArrowRight" && canNavigate) {
+        event.preventDefault();
+        onNext();
+      }
     };
 
-    const resizeObserver = new ResizeObserver(update);
-    resizeObserver.observe(detail);
-    update();
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    closeButtonRef.current?.focus({ preventScroll: true });
 
     return () => {
-      resizeObserver.disconnect();
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
     };
-  }, [onHeightChange, photo.id]);
+  }, [canNavigate, onClose, onNext, onPrevious]);
 
   const rows = [
     ["Camera", photo.metadata.camera],
@@ -375,43 +319,134 @@ function PhotoAnchoredDetail({ onClose, onHeightChange, photo, position }) {
   ].filter(([, value]) => Boolean(value));
 
   return (
-    <aside
-      className="photo-detail"
-      aria-label={`${photo.title} details`}
-      ref={detailRef}
-      style={{
-        left: position.left,
-        top: position.top,
-        width: position.width,
-      }}
+    <div
+      className="photo-detail-overlay"
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <div className="photo-detail-heading">
-        <p className="eyebrow">Photo detail</p>
+      <aside className="photo-detail-window" aria-label={`${photo.title} details`} aria-modal="true" role="dialog">
         <button
           aria-label="Close photo detail"
           className="photo-detail-close"
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
         >
           <X size={20} />
         </button>
-      </div>
 
-      <div className="exif-grid">
-        {rows.length ? (
-          rows.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))
-        ) : (
-          <div>
-            <span>EXIF</span>
-            <strong>No embedded metadata found</strong>
-          </div>
+        <div className="photo-detail-media">
+          <img src={photo.image} alt={photo.title} />
+        </div>
+
+        {canNavigate && (
+          <>
+            <button
+              aria-label="Previous photo"
+              className="photo-detail-nav photo-detail-nav-prev"
+              type="button"
+              onClick={onPrevious}
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              aria-label="Next photo"
+              className="photo-detail-nav photo-detail-nav-next"
+              type="button"
+              onClick={onNext}
+            >
+              <ChevronRight size={24} />
+            </button>
+          </>
         )}
+
+        <div className="photo-detail-side">
+          <section className="photo-detail-info" aria-label="Photo metadata">
+            <p className="eyebrow">
+              Photo detail
+              {totalCount > 1 && currentIndex >= 0 ? ` ${currentIndex + 1}/${totalCount}` : ""}
+            </p>
+            <div className="exif-grid">
+              {rows.length ? (
+                rows.map(([label, value]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                ))
+              ) : (
+                <div>
+                  <span>EXIF</span>
+                  <strong>No embedded metadata found</strong>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="photo-detail-map-panel" aria-label="Photo location map">
+            <PhotoDetailLocationMap coordinates={coordinates} label={locationLabel} />
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function PhotoDetailLocationMap({ coordinates, label }) {
+  const mapNodeRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!coordinates || !mapNodeRef.current) return undefined;
+
+    const position = [coordinates.latitude, coordinates.longitude];
+    const map = L.map(mapNodeRef.current, {
+      attributionControl: true,
+      scrollWheelZoom: false,
+      zoomControl: false,
+    }).setView(position, 9);
+
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    const marker = L.marker(position, {
+      title: label || "Photo location",
+      icon: createPhotoMarkerIcon(true),
+    }).addTo(map);
+
+    mapRef.current = map;
+    markerRef.current = marker;
+    requestAnimationFrame(() => map.invalidateSize());
+    window.setTimeout(() => map.invalidateSize(), 250);
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, [coordinates, label]);
+
+  if (!coordinates) {
+    return (
+      <div className="photo-detail-map-empty">
+        <span>Location</span>
+        <strong>{label || "No precise GPS saved"}</strong>
       </div>
-    </aside>
+    );
+  }
+
+  return (
+    <>
+      <div className="photo-detail-map" ref={mapNodeRef} />
+      {label && (
+        <div className="photo-detail-map-label">
+          <MapPin size={14} />
+          <span>{label}</span>
+        </div>
+      )}
+    </>
   );
 }

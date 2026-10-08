@@ -20,9 +20,9 @@ export default function CoursePage() {
 
   return (
     <PageShell
-      eyebrow="Course timeline"
-      title="A draggable map of graduate and undergraduate coursework."
-      intro="Courses are grouped chronologically, with project links surfaced where available."
+      eyebrow="03 — Courses"
+      title="Coursework, from Madison to San Diego."
+      intro="Drag sideways to move through the terms."
     >
       <div className="timeline-controls">
         <div className="term-jump">

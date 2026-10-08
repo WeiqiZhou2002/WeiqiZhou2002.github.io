@@ -57,3 +57,15 @@ export function getDisplayLocation(metadata) {
   const coordinates = getPhotoCoordinates(metadata);
   return coordinates ? formatCoordinates(coordinates) : "";
 }
+
+// Reverse geocoding labels everything in the PRC as "…, China". Show Hong Kong
+// and Macau on their own and call the rest "China Mainland".
+const SEPARATE_REGIONS = new Set(["Hong Kong", "Macau", "Macao"]);
+
+export function normalizeLocation(text) {
+  if (!text) return text;
+  const parts = text.split(",").map((part) => part.trim());
+  if (parts.length < 2 || parts[parts.length - 1] !== "China") return text;
+  if (SEPARATE_REGIONS.has(parts[0])) return parts[0];
+  return [...parts.slice(0, -1), "China Mainland"].join(", ");
+}

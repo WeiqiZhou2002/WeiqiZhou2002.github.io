@@ -6,20 +6,26 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "thumbs": "node scripts/build-thumbs.mjs",
+    "prebuild": "node scripts/geocode-places.mjs && node scripts/build-thumbs.mjs",
+    "places": "node scripts/geocode-places.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "@react-three/postprocessing": "^2.16.3",
-    "leaflet": "^1.9.4",
+    "d3-geo": "^3.1.1",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "three": "^0.169.0"
+    "three": "^0.169.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.1",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "sharp": "^0.33.5"
   }
 }

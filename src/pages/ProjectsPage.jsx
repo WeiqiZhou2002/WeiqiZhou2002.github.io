@@ -5,9 +5,9 @@ import { projects } from "../data/site.js";
 export default function ProjectsPage() {
   return (
     <PageShell
-      eyebrow="Selected projects"
-      title="A focused shelf of things I am building."
-      intro="The project page keeps the homepage lighter and gives each build enough room to breathe."
+      eyebrow="01 — Projects"
+      title="Things I've built, and the one I'm building now."
+      intro=""
     >
       <div className="project-grid page-grid">
         {projects.map((project) => {

@@ -2,6 +2,7 @@ import { CalendarDays, Camera, Code2, Database, Sparkles } from "lucide-react";
 
 export const photos = {
   hero: new URL("../../assets/optimized/home-hero.jpg", import.meta.url).href,
+  windowView: new URL("../../assets/optimized/window-view.jpg", import.meta.url).href,
 };
 
 export const routes = [

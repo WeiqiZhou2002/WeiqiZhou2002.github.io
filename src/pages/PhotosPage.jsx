@@ -71,8 +71,8 @@ export default function PhotosPage() {
 
   return (
     <PageShell
-      eyebrow="Photography"
-      title="A photo gallery."
+      eyebrow="04 — Photographs"
+      title="Photographs."
       intro=""
     >
       <section className="photo-dashboard photo-dashboard-readonly">

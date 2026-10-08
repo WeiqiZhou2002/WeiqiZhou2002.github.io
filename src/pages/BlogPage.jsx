@@ -47,8 +47,8 @@ export default function BlogPage() {
 
   return (
     <PageShell
-      eyebrow="Blog"
-      title="Posts, project notes, and the occasional memory."
+      eyebrow="02 — Writing"
+      title="Notes, write-ups, and the occasional memory."
       intro=""
     >
       <section className="blog-layout">
